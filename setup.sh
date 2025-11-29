@@ -56,7 +56,7 @@ detect_arch() {
 # Install packages based on OS
 install_packages() {
     local os=$1
-    local packages=("curl" "git" "make" "gcc" "bat")
+    local packages=("curl" "git" "make" "gcc" "bat" "npm")
 
     log "Installing core packages..."
 
@@ -130,12 +130,12 @@ install_neovim() {
         local asset_name=""
 
         if [[ "$arch" == "x86_64" ]]; then
-            asset_name="nvim.appimage"
+            asset_name="nvim-linux-x86_64.appimage"
         elif [[ "$arch" == "aarch64" ]]; then
-            asset_name="nvim.appimage"
+            asset_name="nvim-linux-arm64.appimage"
         fi
 
-        local download_url=$(curl -s "$release_url" | grep -o "\"browser_download_url\": \"[^\"]*$asset_name\"" | head -1 | cut -d'"' -f4)
+        local download_url=$(curl -s "$release_url" | jq -r ".assets[] | select(.name == \"$asset_name\") | .browser_download_url" | head -1)
 
         if [[ -z "$download_url" ]]; then
             error "Could not find Neovim AppImage release"

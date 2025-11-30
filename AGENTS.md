@@ -12,7 +12,6 @@ Single-file bash automation script that orchestrates environment setup across Li
 - **OS Detection**: OSTYPE matching for linux-gnu vs darwin
 - **Architecture Detection**: uname -m parsing (x86_64/aarch64) for AppImage selection
 - **Install Functions**: Modular functions for each tool/package
-- **Config Management**: Clones to `~/.dotfiles/`, symlinks to `~/.config/`
 - **Idempotent Design**: All functions check if already installed; git pulls for updates
 
 ## Key Implementation Details

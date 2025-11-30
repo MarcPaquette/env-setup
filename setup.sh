@@ -59,7 +59,7 @@ detect_arch() {
 # Install packages based on OS
 install_packages() {
     local os=$1
-    local packages=("curl" "git" "make" "gcc" "bat" "npm" "shellcheck")
+    local packages=("curl" "git" "make" "gcc" "bat" "npm" "shellcheck" "strace")
 
     log "Installing core packages..."
 
@@ -278,6 +278,41 @@ install_gopls() {
     fi
 }
 
+# Setup tmux configuration
+setup_tmux() {
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local tmux_repo_dir="$script_dir/tmuxfiles"
+    local tmux_commit="0dc93fdc1d414e1e14aa29a5cceca9b12ecfc412"
+
+    log "Setting up tmux configuration..."
+
+    # Ensure tmuxfiles is at the correct commit
+    git -C "$tmux_repo_dir" fetch origin
+    git -C "$tmux_repo_dir" checkout "$tmux_commit"
+    log "Checked out tmuxfiles commit $tmux_commit"
+
+    # Handle ~/.tmux.conf symlink
+    mkdir -p "$HOME/.tmux"
+    if [[ -L "$HOME/.tmux.conf" ]]; then
+        rm "$HOME/.tmux.conf"
+    elif [[ -f "$HOME/.tmux.conf" ]]; then
+        log "Backing up existing ~/.tmux.conf to ~/.tmux.conf.bak"
+        mv "$HOME/.tmux.conf" "$HOME/.tmux.conf.bak"
+    fi
+    ln -sf "$tmux_repo_dir/tmux.conf" "$HOME/.tmux.conf"
+    log "Linked tmux configuration to ~/.tmux.conf"
+
+    # Run install script
+    if [[ -x "$tmux_repo_dir/install" ]]; then
+        bash "$tmux_repo_dir/install"
+        log "Executed tmuxfiles install script"
+    else
+        error "tmuxfiles install script not found or not executable"
+        return 1
+    fi
+}
+
 # Setup repositories and symlinks
 setup_configurations() {
     local script_dir
@@ -345,6 +380,61 @@ EOF
     log "Fish aliases and PATH configured"
 }
 
+# Setup Python virtual environment
+setup_python_venv() {
+    local venv_dir="$HOME/.venv"
+    local fish_venv_file="$HOME/.config/fish/conf.d/venv.fish"
+
+    log "Setting up Python virtual environment..."
+
+    # Create venv if it doesn't exist
+    if [[ ! -d "$venv_dir" ]]; then
+        if command -v python3 &> /dev/null; then
+            python3 -m venv "$venv_dir"
+            log "Created Python venv at $venv_dir"
+        else
+            error "Python3 is required to create venv"
+            return 1
+        fi
+    else
+        log "Python venv already exists at $venv_dir"
+    fi
+
+    # Create Fish configuration to auto-source venv
+    mkdir -p "$HOME/.config/fish/conf.d"
+    cat > "$fish_venv_file" << 'EOF'
+# Auto-activate Python venv if it exists
+if test -f "$HOME/.venv/bin/activate.fish"
+    source "$HOME/.venv/bin/activate.fish"
+end
+EOF
+
+    log "Fish venv auto-activation configured"
+}
+
+# Install and setup bash-git-prompt for Fish
+setup_bash_git_prompt() {
+    local bash_git_prompt_dir="$HOME/.bash-git-prompt"
+    local fish_prompt_file="$HOME/.config/fish/conf.d/git_prompt.fish"
+
+    log "Setting up bash-git-prompt for Fish..."
+
+    # Clone or update bash-git-prompt repository
+    if [[ -d "$bash_git_prompt_dir" ]]; then
+        log "Updating bash-git-prompt..."
+        git -C "$bash_git_prompt_dir" fetch origin
+        git -C "$bash_git_prompt_dir" checkout master
+    else
+        log "Cloning bash-git-prompt..."
+        git clone https://github.com/magicmonty/bash-git-prompt.git "$bash_git_prompt_dir"
+    fi
+
+    # Copy gitprompt.fish to Fish configuration
+    mkdir -p "$HOME/.config/fish/conf.d"
+    cp "$bash_git_prompt_dir/gitprompt.fish" "$fish_prompt_file"
+    log "Installed bash-git-prompt for Fish"
+}
+
 # Set Fish as default shell
 set_fish_default() {
     local fish_path
@@ -385,9 +475,12 @@ main() {
     install_ghostty "$os" "$arch"
     install_go "$os" "$arch"
     install_uv
-    install_gopls
+    # install_gopls
     setup_configurations
+    setup_tmux
     setup_fish_aliases
+    setup_python_venv
+    setup_bash_git_prompt
     set_fish_default
 
     log "Environment setup completed successfully!"

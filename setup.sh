@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
 set -e
+set -u
+set -o pipefail
 
 # Color output
 RED='\033[0;31m'
@@ -35,7 +37,8 @@ detect_os() {
 
 # Detect architecture
 detect_arch() {
-    local arch=$(uname -m)
+    local arch
+    arch=$(uname -m)
     case $arch in
         x86_64)
             echo "x86_64"
@@ -56,7 +59,7 @@ detect_arch() {
 # Install packages based on OS
 install_packages() {
     local os=$1
-    local packages=("curl" "git" "make" "gcc" "bat" "npm")
+    local packages=("curl" "git" "make" "gcc" "bat" "npm" "shellcheck")
 
     log "Installing core packages..."
 
@@ -135,7 +138,8 @@ install_neovim() {
             asset_name="nvim-linux-arm64.appimage"
         fi
 
-        local download_url=$(curl -s "$release_url" | jq -r ".assets[] | select(.name == \"$asset_name\") | .browser_download_url" | head -1)
+        local download_url
+        download_url=$(curl -s "$release_url" | jq -r ".assets[] | select(.name == \"$asset_name\") | .browser_download_url" | head -1)
 
         if [[ -z "$download_url" ]]; then
             error "Could not find Neovim AppImage release"
@@ -179,7 +183,8 @@ install_ghostty() {
             return 1
         fi
 
-        local download_url=$(curl -s "$release_url" | grep -o "\"browser_download_url\": \"[^\"]*$asset_name\"" | head -1 | cut -d'"' -f4)
+        local download_url
+        download_url=$(curl -s "$release_url" | grep -o "\"browser_download_url\": \"[^\"]*$asset_name\"" | head -1 | cut -d'"' -f4)
 
         if [[ -z "$download_url" ]]; then
             error "Could not find Ghostty release for architecture: $arch"
@@ -192,7 +197,7 @@ install_ghostty() {
         chmod +x ~/.local/bin/ghostty
 
         if ! grep -q "$HOME/.local/bin" <<< "$PATH"; then
-            warn "~/.local/bin is not in PATH. Add it to your shell configuration."
+            warn "$HOME/.local/bin is not in PATH. Add it to your shell configuration."
         fi
 
     elif [[ "$os" == "macos" ]]; then
@@ -212,7 +217,8 @@ install_go() {
 
     log "Installing latest Go..."
 
-    local go_version=$(curl -s https://go.dev/dl/ | grep -oP 'go\d+\.\d+\.\d+' | head -1 | sed 's/go//')
+    local go_version
+    go_version=$(curl -s https://go.dev/dl/ | grep -oP 'go\d+\.\d+\.\d+' | head -1 | sed 's/go//')
 
     if [[ "$os" == "linux" ]]; then
         local go_arch="$arch"
@@ -254,9 +260,28 @@ install_uv() {
     log "uv installed successfully. Ensure ~/.cargo/bin is in your PATH"
 }
 
+# Install gopls (Go language server)
+install_gopls() {
+    if command -v gopls &> /dev/null; then
+        log "gopls is already installed"
+        return
+    fi
+
+    log "Installing gopls..."
+
+    if command -v go &> /dev/null; then
+        go install github.com/golang/tools/gopls@latest
+        log "gopls installed successfully"
+    else
+        error "Go is required to install gopls"
+        return 1
+    fi
+}
+
 # Setup repositories and symlinks
 setup_configurations() {
-    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local script_dir
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
     log "Setting up configuration symlinks..."
 
@@ -322,7 +347,8 @@ EOF
 
 # Set Fish as default shell
 set_fish_default() {
-    local fish_path=$(command -v fish)
+    local fish_path
+    fish_path=$(command -v fish)
 
     if [[ "$SHELL" == "$fish_path" ]]; then
         log "Fish is already the default shell"
@@ -345,8 +371,10 @@ set_fish_default() {
 main() {
     log "Starting environment setup..."
 
-    local os=$(detect_os)
-    local arch=$(detect_arch)
+    local os
+    os=$(detect_os)
+    local arch
+    arch=$(detect_arch)
 
     log "Detected OS: $os"
     log "Detected architecture: $arch"
@@ -357,6 +385,7 @@ main() {
     install_ghostty "$os" "$arch"
     install_go "$os" "$arch"
     install_uv
+    install_gopls
     setup_configurations
     setup_fish_aliases
     set_fish_default

@@ -256,49 +256,9 @@ install_uv() {
 
 # Setup repositories and symlinks
 setup_configurations() {
-    local config_dir="$HOME/.dotfiles"
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-    log "Setting up configuration repositories..."
-
-    mkdir -p "$config_dir"
-
-    # Clone or update tmux configuration
-    if [[ -d "$config_dir/tmuxfiles" ]]; then
-        log "Updating tmuxfiles..."
-        git -C "$config_dir/tmuxfiles" fetch origin
-        git -C "$config_dir/tmuxfiles" checkout 0dc93fdc1d414e1e14aa29a5cceca9b12ecfc412
-    else
-        log "Cloning tmuxfiles..."
-        git clone https://github.com/MarcPaquette/tmuxfiles "$config_dir/tmuxfiles"
-        git -C "$config_dir/tmuxfiles" checkout 0dc93fdc1d414e1e14aa29a5cceca9b12ecfc412
-    fi
-
-    # Run tmuxfiles install script after commit is checked out
-    if [[ -f "$config_dir/tmuxfiles/install.sh" ]]; then
-        log "Running tmuxfiles install script..."
-        bash "$config_dir/tmuxfiles/install.sh"
-    fi
-
-    # Clone or update neovim configuration
-    if [[ -d "$config_dir/neovim-config" ]]; then
-        log "Updating neovim-config..."
-        git -C "$config_dir/neovim-config" pull
-    else
-        log "Cloning neovim-config..."
-        git clone https://github.com/MarcPaquette/neovim-config "$config_dir/neovim-config"
-    fi
-
-    # Setup symlinks
-    log "Setting up symlinks..."
-
-    # Tmux configuration
-    mkdir -p "$HOME/.config/tmux"
-    if [[ ! -L "$HOME/.config/tmux/config" ]]; then
-        ln -sf "$config_dir/tmuxfiles" "$HOME/.config/tmux/config"
-        log "Linked tmux configuration"
-    else
-        log "Tmux configuration symlink already exists"
-    fi
+    log "Setting up configuration symlinks..."
 
     # Neovim configuration
     if [[ ! -L "$HOME/.config/nvim" ]]; then
@@ -307,7 +267,7 @@ setup_configurations() {
             log "Backing up existing nvim config to ~/.config/nvim.bak"
             mv "$HOME/.config/nvim" "$HOME/.config/nvim.bak"
         fi
-        ln -sf "$config_dir/neovim-config" "$HOME/.config/nvim"
+        ln -sf "$script_dir/neovim-config" "$HOME/.config/nvim"
         log "Linked neovim configuration"
     else
         log "Neovim configuration symlink already exists"

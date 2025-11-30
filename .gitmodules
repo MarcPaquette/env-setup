@@ -1,7 +1,3 @@
-[submodule "tmuxfiles"]
-	path = tmuxfiles
-	url = https://github.com/MarcPaquette/tmuxfiles.git
-	branch = 2397c0bfa3ea6e0b453b43e6fe4541bc201fbdef
 [submodule "neovim-config"]
 	path = neovim-config
 	url = https://github.com/MarcPaquette/neovim-config.git

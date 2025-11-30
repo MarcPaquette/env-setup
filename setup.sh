@@ -10,6 +10,9 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Script directory (computed once for reliability)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Logging functions
 log() {
     echo -e "${GREEN}[INFO]${NC} $1"
@@ -59,7 +62,20 @@ detect_arch() {
 # Install packages based on OS
 install_packages() {
     local os=$1
-    local packages=("curl" "git" "make" "gcc" "bat" "npm" "shellcheck" "strace")
+
+    # Common packages for both OSes
+    local common_packages=("curl" "git" "make" "gcc" "bat" "npm" "shellcheck" "tmux")
+
+    # OS-specific packages
+    local linux_packages=("jq" "strace" "python3-venv")
+    local macos_packages=()
+
+    local packages=("${common_packages[@]}")
+    if [[ "$os" == "linux" ]]; then
+        packages+=("${linux_packages[@]}")
+    else
+        packages+=("${macos_packages[@]}")
+    fi
 
     log "Installing core packages..."
 
@@ -73,7 +89,14 @@ install_packages() {
         sudo apt update
 
         for package in "${packages[@]}"; do
-            if ! command -v "$package" &> /dev/null; then
+            # Special case: bat is installed as batcat on Debian/Ubuntu
+            if [[ "$package" == "bat" ]]; then
+                if command -v bat &> /dev/null || command -v batcat &> /dev/null; then
+                    log "bat/batcat is already installed"
+                    continue
+                fi
+            fi
+            if ! dpkg -s "$package" &> /dev/null; then
                 log "Installing $package..."
                 sudo apt install -y "$package"
             else
@@ -205,7 +228,10 @@ install_ghostty() {
     fi
 }
 
-# Install Go (latest)
+# Install Go (pinned version for reliability)
+# Update GO_VERSION when you want to upgrade
+GO_VERSION="1.23.3"
+
 install_go() {
     local os=$1
     local arch=$2
@@ -215,10 +241,7 @@ install_go() {
         return
     fi
 
-    log "Installing latest Go..."
-
-    local go_version
-    go_version=$(curl -s https://go.dev/dl/ | grep -oP 'go\d+\.\d+\.\d+' | head -1 | sed 's/go//')
+    log "Installing Go ${GO_VERSION}..."
 
     if [[ "$os" == "linux" ]]; then
         local go_arch="$arch"
@@ -227,12 +250,12 @@ install_go() {
         elif [[ "$arch" == "aarch64" ]]; then
             go_arch="arm64"
         fi
-        local tar_name="go${go_version}.linux-${go_arch}.tar.gz"
+        local tar_name="go${GO_VERSION}.linux-${go_arch}.tar.gz"
         local download_url="https://go.dev/dl/$tar_name"
 
-        log "Downloading Go ${go_version}..."
+        log "Downloading Go ${GO_VERSION}..."
         mkdir -p /tmp/go-install
-        curl -L "$download_url" -o /tmp/go-install/"$tar_name"
+        curl -fL "$download_url" -o /tmp/go-install/"$tar_name"
 
         log "Extracting Go..."
         sudo rm -rf /usr/local/go
@@ -243,7 +266,7 @@ install_go() {
         brew install go
     fi
 
-    log "Go installed successfully"
+    log "Go ${GO_VERSION} installed successfully"
 }
 
 # Install uv (Python package manager)
@@ -270,7 +293,7 @@ install_gopls() {
     log "Installing gopls..."
 
     if command -v go &> /dev/null; then
-        go install github.com/golang/tools/gopls@latest
+        GOBIN="$HOME/.local/bin" go install golang.org/x/tools/gopls@latest
         log "gopls installed successfully"
     else
         error "Go is required to install gopls"
@@ -280,45 +303,27 @@ install_gopls() {
 
 # Setup tmux configuration
 setup_tmux() {
-    local script_dir
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local tmux_repo_dir="$script_dir/tmuxfiles"
-    local tmux_commit="0dc93fdc1d414e1e14aa29a5cceca9b12ecfc412"
+    local install_script_url="https://raw.githubusercontent.com/MarcPaquette/tmuxfiles/refs/heads/master/install"
 
     log "Setting up tmux configuration..."
 
-    # Ensure tmuxfiles is at the correct commit
-    git -C "$tmux_repo_dir" fetch origin
-    git -C "$tmux_repo_dir" checkout "$tmux_commit"
-    log "Checked out tmuxfiles commit $tmux_commit"
+    # Remove old tmux configs
+    log "Removing old tmux configurations..."
+    rm -rf "${HOME}/.tmux.conf" "${HOME}/.tmux"
 
-    # Handle ~/.tmux.conf symlink
-    mkdir -p "$HOME/.tmux"
-    if [[ -L "$HOME/.tmux.conf" ]]; then
-        rm "$HOME/.tmux.conf"
-    elif [[ -f "$HOME/.tmux.conf" ]]; then
-        log "Backing up existing ~/.tmux.conf to ~/.tmux.conf.bak"
-        mv "$HOME/.tmux.conf" "$HOME/.tmux.conf.bak"
-    fi
-    ln -sf "$tmux_repo_dir/tmux.conf" "$HOME/.tmux.conf"
-    log "Linked tmux configuration to ~/.tmux.conf"
+    # Download and run the install script
+    log "Running tmuxfiles install script..."
+    curl -fsSL "$install_script_url" | bash
 
-    # Run install script
-    if [[ -x "$tmux_repo_dir/install" ]]; then
-        bash "$tmux_repo_dir/install"
-        log "Executed tmuxfiles install script"
-    else
-        error "tmuxfiles install script not found or not executable"
-        return 1
-    fi
+    log "Tmux configuration installed"
 }
 
 # Setup repositories and symlinks
 setup_configurations() {
-    local script_dir
-    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
     log "Setting up configuration symlinks..."
+
+    # Ensure base config directory exists
+    mkdir -p "$HOME/.config"
 
     # Neovim configuration
     if [[ ! -L "$HOME/.config/nvim" ]]; then
@@ -327,7 +332,7 @@ setup_configurations() {
             log "Backing up existing nvim config to ~/.config/nvim.bak"
             mv "$HOME/.config/nvim" "$HOME/.config/nvim.bak"
         fi
-        ln -sf "$script_dir/neovim-config" "$HOME/.config/nvim"
+        ln -sf "$SCRIPT_DIR/neovim-config" "$HOME/.config/nvim"
         log "Linked neovim configuration"
     else
         log "Neovim configuration symlink already exists"
@@ -339,9 +344,11 @@ setup_configurations() {
 
     # Ghostty configuration
     mkdir -p "$HOME/.config/ghostty"
-    if [[ -f "$(pwd)/ghostty-config" ]]; then
-        cp "$(pwd)/ghostty-config" "$HOME/.config/ghostty/config"
+    if [[ -f "$SCRIPT_DIR/ghostty-config" ]]; then
+        cp "$SCRIPT_DIR/ghostty-config" "$HOME/.config/ghostty/config"
         log "Ghostty configuration installed"
+    else
+        warn "ghostty-config not found in $SCRIPT_DIR; skipping Ghostty config"
     fi
 }
 
@@ -357,13 +364,18 @@ setup_fish_aliases() {
     # Create aliases file
     cat > "$aliases_file" << 'EOF'
 # Aliases
-if command -v batcat &> /dev/null
+if command -v batcat >/dev/null 2>&1
     alias bat batcat
 end
 
 # Add Go to PATH
 if test -d /usr/local/go/bin
     set -gx PATH /usr/local/go/bin $PATH
+end
+
+# Add Go bin to PATH (where go install puts binaries)
+if test -d "$HOME/go/bin"
+    set -gx PATH "$HOME/go/bin" $PATH
 end
 
 # Add cargo to PATH
@@ -475,7 +487,7 @@ main() {
     install_ghostty "$os" "$arch"
     install_go "$os" "$arch"
     install_uv
-    # install_gopls
+    install_gopls
     setup_configurations
     setup_tmux
     setup_fish_aliases

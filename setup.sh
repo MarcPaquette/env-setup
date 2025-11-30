@@ -215,7 +215,13 @@ install_go() {
     local go_version=$(curl -s https://go.dev/dl/ | grep -oP 'go\d+\.\d+\.\d+' | head -1 | sed 's/go//')
 
     if [[ "$os" == "linux" ]]; then
-        local tar_name="go${go_version}.linux-${arch}.tar.gz"
+        local go_arch="$arch"
+        if [[ "$arch" == "x86_64" ]]; then
+            go_arch="amd64"
+        elif [[ "$arch" == "aarch64" ]]; then
+            go_arch="arm64"
+        fi
+        local tar_name="go${go_version}.linux-${go_arch}.tar.gz"
         local download_url="https://go.dev/dl/$tar_name"
 
         log "Downloading Go ${go_version}..."
@@ -231,7 +237,7 @@ install_go() {
         brew install go
     fi
 
-    log "Go installed successfully. Ensure /usr/local/go/bin is in your PATH"
+    log "Go installed successfully"
 }
 
 # Install uv (Python package manager)
@@ -267,7 +273,7 @@ setup_configurations() {
         git -C "$config_dir/tmuxfiles" checkout 0dc93fdc1d414e1e14aa29a5cceca9b12ecfc412
     fi
 
-    # Run tmuxfiles install script
+    # Run tmuxfiles install script after commit is checked out
     if [[ -f "$config_dir/tmuxfiles/install.sh" ]]; then
         log "Running tmuxfiles install script..."
         bash "$config_dir/tmuxfiles/install.sh"
@@ -319,12 +325,12 @@ setup_configurations() {
     fi
 }
 
-# Setup Fish aliases
+# Setup Fish aliases and PATH
 setup_fish_aliases() {
     local fish_aliases_dir="$HOME/.config/fish/conf.d"
     local aliases_file="$fish_aliases_dir/aliases.fish"
 
-    log "Setting up Fish aliases..."
+    log "Setting up Fish aliases and PATH..."
 
     mkdir -p "$fish_aliases_dir"
 
@@ -334,9 +340,24 @@ setup_fish_aliases() {
 if command -v batcat &> /dev/null
     alias bat batcat
 end
+
+# Add Go to PATH
+if test -d /usr/local/go/bin
+    set -gx PATH /usr/local/go/bin $PATH
+end
+
+# Add cargo to PATH
+if test -d "$HOME/.cargo/bin"
+    set -gx PATH "$HOME/.cargo/bin" $PATH
+end
+
+# Add local bin to PATH
+if test -d "$HOME/.local/bin"
+    set -gx PATH "$HOME/.local/bin" $PATH
+end
 EOF
 
-    log "Fish aliases configured"
+    log "Fish aliases and PATH configured"
 }
 
 # Set Fish as default shell
@@ -356,7 +377,7 @@ set_fish_default() {
         echo "$fish_path" | sudo tee -a /etc/shells > /dev/null
     fi
 
-    echo "$fish_path" | sudo chsh -s -
+    chsh -s "$fish_path"
     log "Default shell changed to Fish. Changes will take effect on next login."
 }
 

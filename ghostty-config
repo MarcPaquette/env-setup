@@ -7,25 +7,25 @@ fullscreen = true
 # Keybindings
 keybind = alt+enter=toggle_fullscreen
 
-# Colors (iTerm2 Tango Dark)
+# Colors (Symfonic)
 background = #000000
-foreground = #d3d7cf
-palette = 0=#000000
-palette = 1=#cc0000
-palette = 2=#4e9a06
-palette = 3=#c4a000
-palette = 4=#3465a4
-palette = 5=#75507b
-palette = 6=#06989a
-palette = 7=#d3d7cf
-palette = 8=#555753
-palette = 9=#ef2929
-palette = 10=#8ae234
-palette = 11=#fce94f
-palette = 12=#729fcf
-palette = 13=#ad7fa8
-palette = 14=#34e2e2
-palette = 15=#eeeeec
+foreground = #e6edf3
+palette = 0=#484f58
+palette = 1=#f85149
+palette = 2=#3fb950
+palette = 3=#d29922
+palette = 4=#58a6ff
+palette = 5=#bc8ef4
+palette = 6=#39c5cf
+palette = 7=#e6edf3
+palette = 8=#30363d
+palette = 9=#f85149
+palette = 10=#3fb950
+palette = 11=#d29922
+palette = 12=#58a6ff
+palette = 13=#bc8ef4
+palette = 14=#39c5cf
+palette = 15=#f0883e
 
 # Font settings (optional, customize as needed)
 # font-family = "JetBrains Mono"

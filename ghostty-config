@@ -2,8 +2,7 @@
 # iTerm2 Tango Dark color scheme
 
 # Window settings
-maximize = true  # Start maximized on Linux
-# fullscreen = true  # Only works on macOS at startup
+fullscreen = true  # Only works on macOS at startup
 
 # Keybindings
 keybind = alt+enter=toggle_fullscreen
